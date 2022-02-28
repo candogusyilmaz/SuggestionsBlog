@@ -1,0 +1,120 @@
+﻿@page "/details/{Id}"
+@inject ISuggestionService sugService
+@inject NavigationManager navManager
+@inject AuthenticationStateProvider authState
+@inject IUserService userService
+
+<h1>Suggestion Details</h1>
+<div>
+    <div>
+        @if (_suggestion is not null)
+        {
+            <div>
+                <div>
+                    <div @onclick="() => Vote()">
+                        <div>@GetUpvoteTopText()</div>
+                        <span class="oi oi-caret-top"></span>
+                        <div>@GetUpvoteBottomText()</div>
+                    </div>
+                    <div>
+                        <div>@_suggestion.DateCreated.ToString("MM.dd.yyyy")</div>
+                    </div>
+
+                </div>
+                <div>
+                    <div>@_suggestion.Title</div>    
+                    <div>@_suggestion.Author.DisplayName</div>    
+                    <div>@_suggestion.Description</div>    
+                    <div>@_suggestion.Category.Name</div>    
+                </div>
+                <div>
+                    <button class="button is-rounded is-danger" @onclick="ClosePage">Close</button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if(_suggestion is not null)
+{
+    <div>
+        <div>
+            <div>
+
+            </div>
+            <div>
+                <div>@_suggestion.Status.Name</div>
+                <div>@((MarkupString)_suggestion.OwnerNotes)</div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    private Suggestion _suggestion;
+    private User _user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _suggestion = await sugService.GetSuggestionById(Id);
+        _user = await authState.GetUser(userService);
+    }
+
+    private string GetUpvoteTopText()
+    {
+        if (_suggestion.UserVotes.Count > 0)
+        {
+            return _suggestion.UserVotes.Count.ToString("00");
+        }
+        else
+        {
+             if (_suggestion.Author.Id == _user?.Id)
+            {
+                return "Awaiting";
+            }
+            else
+            {
+                return "Click To";
+            }
+        }
+    }
+    private string GetUpvoteBottomText()
+    {
+        if (_suggestion.UserVotes.Count > 1)
+        {
+            return "Upvotes";
+        }
+        else
+        {
+            return "Upvote";
+        }
+    }
+
+    private async Task Vote()
+    {
+        if(_user is not null)
+        {
+            if(_suggestion.Author.Id == _user.Id)
+                return;
+
+            if(_suggestion.UserVotes.Add(_user.Id) == false)
+            {
+                _suggestion.UserVotes.Remove(_user.Id);
+            }
+
+            await sugService.VoteSuggestion(_suggestion.Id, _user.Id);
+        }
+        else
+        {
+            navManager.NavigateTo("/MicrosoftIdentity/Account/SignIn", true);
+        }
+    }
+
+    private void ClosePage()
+    {
+        navManager.NavigateTo("/");
+    }
+}

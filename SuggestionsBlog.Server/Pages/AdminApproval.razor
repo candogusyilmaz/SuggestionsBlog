@@ -1,0 +1,65 @@
+﻿@page "/admin/approval"
+@attribute [Authorize(Policy = "Admin")]
+@inject ISuggestionService sugService
+@inject IUserService userService
+@inject NavigationManager navManager
+
+<h1>Pending Submissions</h1>
+
+<div>
+    <div>@_submissions?.Count Submissions</div>
+    <div>
+        <button @onclick="ClosePage" class="btn btn-danger">Close</button>
+    </div>
+</div>
+
+@if (_submissions?.Count > 0)
+{
+    foreach (var item in _submissions)
+    {
+        <div class="card">
+            <div class="card-header">
+                @item.Title
+            </div>
+            <div class="card-body">
+                <div class="mb-2">@item.Category.Name</div>
+                <div>@item.Description</div>
+                <div class="mt-2">@item.Author.DisplayName</div>
+            </div>
+            <footer class="card-footer">
+                <button @onclick="() => ApproveSubmission(item)" class="btn btn-success">Approve</button>
+                <button @onclick="() => RejectSubmission(item)" class="btn btn-outline-danger">Reject</button>
+            </footer>
+        </div>
+    }
+}
+
+@code {
+    private List<Suggestion> _submissions;
+    private Suggestion _suggestion;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _submissions = await sugService.GetAllSuggestionsWaitingForApproval();
+
+    }
+
+    private async Task ApproveSubmission(Suggestion suggestion)
+    {
+        suggestion.ApprovedForRelease = true;
+        _submissions.Remove(suggestion);
+        await sugService.UpdateSuggestion(suggestion);
+    }
+
+    private async Task RejectSubmission(Suggestion suggestion)
+    {
+        suggestion.Rejected = true;
+        _submissions.Remove(suggestion);
+        await sugService.UpdateSuggestion(suggestion);
+    }
+
+    private void ClosePage()
+    {
+        navManager.NavigateTo("/");
+    }
+}

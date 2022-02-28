@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UserSecretsId>09204a51-e889-4af9-8df3-6887aff8d368</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SuggestionsBlog.Library\SuggestionsBlog.Library.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Web" Version="1.22.1" />
+    <PackageReference Include="Microsoft.Identity.Web.UI" Version="1.22.1" />
+  </ItemGroup>
+
+</Project>

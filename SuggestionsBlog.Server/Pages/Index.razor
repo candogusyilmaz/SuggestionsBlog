@@ -1,0 +1,316 @@
+﻿@page "/"
+@inject ICategoryService catService
+@inject IStatusService statService
+@inject ISuggestionService sugService
+@inject IUserService userService
+@inject NavigationManager navManager
+@inject ProtectedSessionStorage sesStorage
+@inject AuthenticationStateProvider authProvider
+
+<PageTitle>Suggestions - Homepage</PageTitle>
+<h1>Training Suggestions</h1>
+<button class="btn btn-primary" @onclick="OpenCreate">Suggest</button>
+
+<div>
+    <div>@_filteredSuggestions?.Count Suggestions</div>
+    <div>
+        <button class="btn btn-info" @onclick="() => OrderByNew(true)">New</button>
+        <button class="btn btn-success" @onclick="() => OrderByNew(false)">Popular</button>
+    </div>
+
+    <div>
+        <input class="input is-info is-rounded has-with-50" type="text" placeholder="Search..." aria-label="search suggestions" @oninput="((txt) => OnSearchInput((string)txt.Value))" />
+    </div>
+</div>
+
+<div>
+    <div>
+        @if (_filteredSuggestions is not null)
+        {
+            <Virtualize Items="@_filteredSuggestions" Context="item" OverscanCount="9">
+                <div>
+                    <div @onclick="() => Vote(item)">
+                        <div>@GetUpvoteTopText(item)</div>
+                        <span class="oi oi-caret-top"></span>
+                        <div>@GetUpvoteBottomText(item)</div>
+                    </div>
+                    <div>
+                        <div @onclick="(() => OpenDetails(item))">
+                            @item.Title
+                        </div>
+                        <div>
+                            <div @onclick="(() => OpenDetails(item))">
+                                @item.Category?.Name
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div>
+                            @item.Status?.Name
+                        </div>
+                    </div>
+                </div>
+            </Virtualize>
+        }
+    </div>
+
+    <div>
+        @if (_categories is not null)
+        {
+            <div>
+                <span>Category</span>
+                <div @onclick="() => OnCategoryClick()">All</div>
+                @foreach (var item in _categories)
+                {
+                    <div @onclick="() => OnCategoryClick(item.Name)">@item.Name</div>
+                }
+            </div>
+        }
+        @if (_statuses is not null)
+        {
+            <div>
+                <span>Status</span>
+                <div @onclick="() => OnStatusClick()">All</div>
+                @foreach (var item in _statuses)
+                {
+                    <div @onclick="() => OnStatusClick(item.Name)">@item.Name</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Suggestion> _suggestions;
+    private List<Suggestion> _filteredSuggestions;
+    private List<Category> _categories;
+    private List<Status> _statuses;
+    private User _user;
+
+    private string _selectedCategory = "All";
+    private string _selectedStatus = "All";
+    private string _searchText = string.Empty;
+    bool _sortedByNew = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await catService.GetAllCategories();
+        _suggestions = await sugService.GetAllApprovedSuggestions();
+        _statuses = await statService.GetAllStatuses();
+        await HandleUser();
+    }
+
+    private async Task HandleUser()
+    {
+        var state = await authProvider.GetAuthenticationStateAsync();
+        var oid = state.GetClaimValue("objectidentifier");
+
+        if (string.IsNullOrWhiteSpace(oid) == false)
+        {
+            _user = await authProvider.GetUser(userService) ?? new();
+
+            string firstName = state.GetClaimValue("givenname");
+            string lastName = state.GetClaimValue("surname");
+            string displayName = state.GetClaimValue("name", true);
+            string email = state.GetClaimValue("email");
+
+            bool dirty = false;
+
+            if (oid != _user.ObjectIdentifier)
+            {
+                dirty = true;
+                _user.ObjectIdentifier = oid;
+            }
+
+            if (firstName != _user.FirstName)
+            {
+                dirty = true;
+                _user.FirstName = firstName;
+            }
+
+            if (lastName != _user.LastName)
+            {
+                dirty = true;
+                _user.LastName = lastName;
+            }
+
+            if (displayName != _user.DisplayName)
+            {
+                dirty = true;
+                _user.DisplayName = displayName;
+            }
+
+            if (email != _user.EmailAddress)
+            {
+                dirty = true;
+                _user.EmailAddress = email;
+            }
+
+            if (dirty)
+            {
+                if (!string.IsNullOrWhiteSpace(_user.ObjectIdentifier))
+                {
+                    await userService.CreateUser(_user);
+                }
+                else
+                {
+                    await userService.UpdateUser(_user);
+                }
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await LoadFilterState();
+        await FilterSuggestions();
+        StateHasChanged();
+    }
+
+    private async Task SaveFilterState()
+    {
+        await sesStorage.SetAsync(nameof(_selectedCategory), _selectedCategory);
+        await sesStorage.SetAsync(nameof(_selectedStatus), _selectedStatus);
+        await sesStorage.SetAsync(nameof(_searchText), _searchText);
+        await sesStorage.SetAsync(nameof(_sortedByNew), _sortedByNew);
+    }
+
+    private async Task LoadFilterState()
+    {
+        var result = await sesStorage.GetAsync<string>(nameof(_selectedCategory));
+        _selectedCategory = result.Success ? result.Value : "All";
+
+        result = await sesStorage.GetAsync<string>(nameof(_selectedStatus));
+        _selectedStatus = result.Success ? result.Value : "All";
+
+        result = await sesStorage.GetAsync<string>(nameof(_searchText));
+        _searchText = result.Success ? result.Value : "";
+
+        var resultBool = await sesStorage.GetAsync<bool>(nameof(_sortedByNew));
+        _sortedByNew = resultBool.Success ? resultBool.Value : true;
+    }
+
+    private async Task FilterSuggestions()
+    {
+        _filteredSuggestions = _suggestions;
+
+        if (_selectedCategory != "All")
+        {
+            _filteredSuggestions = _filteredSuggestions.Where(s => s.Category.Name == _selectedCategory).ToList();
+        }
+
+        if (_selectedStatus != "All")
+        {
+            _filteredSuggestions = _filteredSuggestions.Where(s => s.Status.Name == _selectedStatus).ToList();
+        }
+
+        if (string.IsNullOrWhiteSpace(_searchText) == false)
+        {
+            _filteredSuggestions = _filteredSuggestions.Where(s => s.Title.Contains(_searchText, StringComparison.InvariantCultureIgnoreCase) ||
+                                                                   s.Description.Contains(_searchText, StringComparison.InvariantCultureIgnoreCase)).ToList();
+        }
+
+        if (_sortedByNew)
+        {
+            _filteredSuggestions = _filteredSuggestions.OrderByDescending(s => s.DateCreated).ToList();
+        }
+        else
+        {
+            _filteredSuggestions = _filteredSuggestions.OrderByDescending(s => s.UserVotes.Count).ThenByDescending(s => s.DateCreated).ToList();
+        }
+
+        await SaveFilterState();
+    }
+
+    private async Task OrderByNew(bool isNew)
+    {
+        _sortedByNew = isNew;
+        await FilterSuggestions();
+    }
+
+    private async Task OnSearchInput(string text)
+    {
+        _searchText = text;
+        await FilterSuggestions();
+    }
+
+    private async Task OnCategoryClick(string name = "All")
+    {
+        _selectedCategory = name;
+        await FilterSuggestions();
+    }
+
+    private async Task OnStatusClick(string name = "All")
+    {
+        _selectedStatus = name;
+        await FilterSuggestions();
+    }
+
+    private string GetUpvoteTopText(Suggestion item)
+    {
+        if (item.UserVotes.Count > 0)
+        {
+            return item.UserVotes.Count.ToString("00");
+        }
+        else
+        {
+            if (item.Author.Id == _user?.Id)
+            {
+                return "Awaiting";
+            }
+            else
+            {
+                return "Click To";
+            }
+        }
+    }
+    private string GetUpvoteBottomText(Suggestion item)
+    {
+        if (item.UserVotes.Count > 1)
+        {
+            return "Upvotes";
+        }
+        else
+        {
+            return "Upvote";
+        }
+    }
+
+    private void OpenCreate()
+    {
+        navManager.NavigateTo("/create");
+    }
+
+    private void OpenDetails(Suggestion item)
+    {
+        navManager.NavigateTo($"/details/{item.Id}");
+    }
+
+    private async Task Vote(Suggestion item)
+    {
+        if(_user is not null)
+        {
+            if(item.Author.Id == _user.Id)
+                return;
+
+            if(item.UserVotes.Add(_user.Id) == false)
+            {
+                item.UserVotes.Remove(_user.Id);
+            }
+
+            await sugService.VoteSuggestion(item.Id, _user.Id);
+
+            if(!_sortedByNew)
+            {
+                _filteredSuggestions = _filteredSuggestions.OrderByDescending(s => s.UserVotes.Count).ThenByDescending(s => s.DateCreated).ToList();
+            }
+        }
+        else
+        {
+            navManager.NavigateTo("/MicrosoftIdentity/Account/SignIn", true);
+        }
+    }
+}

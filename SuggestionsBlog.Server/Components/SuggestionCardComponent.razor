@@ -1,0 +1,32 @@
+﻿<div class="card">
+    <header class="card-header">
+        @Suggestion.Category.Name
+    </header>
+    <div class="card-body">
+        <p class="card-title">@Suggestion.Title</p>
+        @Suggestion.Description
+        <br>
+        <time datetime="@Suggestion.DateCreated">@Suggestion.DateCreated.ToString("hh:mm tt - d MMM yyyy")</time>
+        <hr />
+        @if (Suggestion.OwnerNotes.Length > 0)
+        {
+            <p class="card-subtitle">Owner Notes</p>
+            @Suggestion.OwnerNotes
+        }
+    </div>
+    <footer class="card-footer">
+        @if (@Suggestion.UserVotes.Count > 0)
+        {
+            <p class="card-footer-item">@Suggestion.UserVotes.Count Votes</p>
+        }
+        @if (Suggestion.Status is not null)
+        {
+            <p class="card-footer-item">@Suggestion.Status.Name</p>
+        }
+    </footer>
+</div>
+
+@code {
+    [Parameter]
+    public Suggestion Suggestion { get; set; }
+}

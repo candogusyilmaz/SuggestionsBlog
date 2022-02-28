@@ -1,0 +1,83 @@
+﻿@page "/create"
+@attribute [Authorize]
+@inject ICategoryService catService
+@inject ISuggestionService sugService
+@inject IUserService userService
+@inject NavigationManager navManager
+@inject AuthenticationStateProvider authProvider
+
+<h1>Make A Suggestion</h1>
+
+<div>
+    <div>
+        <div>
+            <button @onclick="ClosePage" class="btn btn-danger">Close</button>
+        </div>
+        @if (_categories is not null)
+        {
+            <EditForm Model="_suggestion" OnValidSubmit="CreateSuggestion">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div>
+                    <label for="title" class="form-label">Suggestion</label>
+                    <div>Focus on the topic or technology you want to see.</div>
+                    <InputText id="title" @bind-Value="_suggestion.Title" class="form-control"/>
+                </div>
+                <div>
+                    <label for="category" class="form-label">Category</label>
+                    <div>Choose a category.</div>
+                    <div>
+                        <InputRadioGroup id="category" @bind-Value="_suggestion.CategoryId">
+                            @foreach (var category in _categories)
+                            {
+                            <div class="form-check">
+                                <InputRadio Value="category.Id" id="@category.Id" class="form-check-input"/>
+                                <label for="@category.Id" class="form-check-label">@category.Name - @category.Description</label>
+                            </div>
+                            }
+                    </InputRadioGroup>
+                </div>
+            </div>
+            <div>
+                <label for="description" class="form-label">Description</label>
+                <div>Briefly describe your suggestion.</div>
+                <InputTextArea id="description" @bind-Value="_suggestion.Description" class="form-control"/>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Suggest</button>
+            </div>
+        </EditForm> 
+        }
+    </div>
+</div>
+
+@code {
+    private CreateSuggestionDto _suggestion = new();
+    private List<Category> _categories;
+    private User _loggedInUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await catService.GetAllCategories();
+        _loggedInUser = await authProvider.GetUser(userService);
+    }
+
+    private async Task CreateSuggestion()
+    {
+        Suggestion suggestion = new()
+            {
+                Title = _suggestion.Title,
+                Category = _categories.First(s => s.Id == _suggestion.CategoryId),
+                Description = _suggestion.Description,
+                Author = new SubUser(_loggedInUser)
+            };
+
+        await sugService.CreateSuggestion(suggestion);
+        ClosePage();
+    }
+
+    private void ClosePage()
+    {
+        navManager.NavigateTo("/");
+    }
+}

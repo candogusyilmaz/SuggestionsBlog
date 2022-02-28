@@ -1,0 +1,202 @@
+﻿@page "/generator"
+@inject ICategoryService catService
+@inject IStatusService staService
+@inject IUserService userService
+@inject ISuggestionService sugService
+
+<h3>Sample Data Generator</h3>
+
+@if (_categories?.Count > 0)
+{
+    <div class="box">
+        <p>Categories have been created.</p>
+    </div>
+}
+else
+{
+    <button class="button is-primary" @onclick="CreateCategories">Create Categories</button>
+}
+
+<hr />
+
+@if (_statuses?.Count > 0)
+{
+    <div class="box">
+        <p>Statuses have been created.</p>
+    </div>
+}
+else
+{
+    <button class="button is-primary" @onclick="CreateStatuses">Create Statuses</button>
+}
+
+<hr />
+
+@if(_suggestions?.Count > 0)
+{
+    <div class="box">
+        <p>Suggestions have been created.</p>
+    </div>
+}
+else
+{
+    <button class="button is-primary" @onclick="GenerateSamples">Generate Sample Data</button>
+}
+
+@code {
+    private List<Category> _categories;
+    private List<Status> _statuses;
+    private List<Suggestion> _suggestions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await catService.GetAllCategories();
+        _statuses = await staService.GetAllStatuses();
+        _suggestions = await sugService.GetAllSuggestions();
+    }
+
+    private async Task GenerateSamples()
+    {
+        if (_suggestions?.Count > 0)
+            return;
+
+        User user = new()
+        {
+            FirstName = "Can",
+            LastName = "Yilmaz",
+            EmailAddress = "canyilmaz@suggestion.com",
+            DisplayName = "Vintage",
+            ObjectIdentifier = "default"
+        };
+
+        await userService.CreateUser(user);
+
+        User foundUser = await userService.GetUserByObjectId("default");
+
+        Suggestion sug = new()
+        {
+            Author = new SubUser(foundUser),
+            Category = _categories[0],
+            Status = _statuses[0],
+            Title = "First Suggestion",
+            Description = "First suggestion description",
+            OwnerNotes = "There are no notes."
+        };
+        sug.UserVotes.Add("1");
+        sug.UserVotes.Add("2");
+        sug.UserVotes.Add("3");
+
+        await sugService.CreateSuggestion(sug);
+
+        sug = new()
+        {
+            Author = new SubUser(foundUser),
+            Category = _categories[1],
+            Status = _statuses[1],
+            Title = "Second Suggestion",
+            Description = "Second suggestion description",
+            OwnerNotes = "There are no notes."
+        };
+        sug.UserVotes.Add("2");
+        sug.UserVotes.Add("3");
+        await sugService.CreateSuggestion(sug);
+
+        sug = new()
+        {
+            Author = new SubUser(foundUser),
+            Category = _categories[1],
+            Status = _statuses[1],
+            Title = "Third Suggestion",
+            Description = "Third suggestion description",
+            OwnerNotes = "There are no notes."
+        };
+        sug.UserVotes.Add("2");
+        await sugService.CreateSuggestion(sug);
+
+        sug = new()
+        {
+            Author = new SubUser(foundUser),
+            Category = _categories[0],
+            Status = _statuses[2],
+            Title = "Fourth Suggestion",
+            Description = "Fourth suggestion description",
+            OwnerNotes = "There are no notes."
+        };
+        sug.UserVotes.Add("1");
+        await sugService.CreateSuggestion(sug);
+
+        sug = new()
+        {
+            Author = new SubUser(foundUser),
+            Category = _categories[1],
+            Status = _statuses[3],
+            Title = "Fifth Suggestion",
+            Description = "Fifth suggestion description",
+            OwnerNotes = "There are no notes."
+        };
+        sug.UserVotes.Add("1");
+        sug.UserVotes.Add("3");
+        await sugService.CreateSuggestion(sug);
+    }
+
+    private async Task CreateCategories()
+    {
+        if (_categories.Count > 0)
+            return;
+
+        Category cat = new Category
+            {
+                Name = "Courses",
+                Description = "Full paid courses."
+            };
+
+        await catService.CreateCategory(cat);
+
+        cat = new Category
+            {
+                Name = "Dev Questions",
+                Description = "Advice on being a better developer on a particular subject."
+            };
+
+        await catService.CreateCategory(cat);
+    }
+
+    private async Task CreateStatuses()
+    {
+
+        if (_statuses.Count > 0)
+            return;
+
+        Status sta = new Status
+            {
+                Name = "Completed",
+                Description = "The suggestion accepted and created."
+            };
+
+        await staService.CreateStatus(sta);
+
+        sta = new Status
+            {
+                Name = "Watching",
+                Description = "Interesting suggestion, maybe, seeking more."
+            };
+
+        await staService.CreateStatus(sta);
+
+        sta = new Status
+            {
+                Name = "Upcoming",
+                Description = "Accepted and will be released in the upcoming future."
+            };
+
+        await staService.CreateStatus(sta);
+
+        sta = new Status
+            {
+                Name = "Dismissed",
+                Description = "The suggestion is dismissed."
+            };
+
+        await staService.CreateStatus(sta);
+    }
+}
